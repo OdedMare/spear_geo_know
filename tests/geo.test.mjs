@@ -54,3 +54,19 @@ test("point in shape across the antimeridian: Chukotka is Russia", () => {
   assert.ok(geo.inShape(100, 60, byId.get("RUS").shape));
   assert.ok(!geo.inShape(-150, 66, byId.get("RUS").shape)); // Alaska
 });
+
+test("missing links: what borders both ends", () => {
+  assert.deepEqual(geo.linksBetween("FRA", "POL", neighbours), ["DEU"]);
+  assert.ok(geo.linksBetween("ESP", "ITA", neighbours).includes("FRA"));
+  assert.deepEqual(geo.linksBetween("ESP", "ITA", neighbours, ["FRA"]), []);
+});
+
+test("a random chain is a real chain, and a seed repeats it", async () => {
+  const daily = await load("daily.ts");
+  const starts = ["DEU", "BRA", "KEN", "KAZ"];
+  const a = geo.randomChain(starts, 5, neighbours, daily.rng("x"));
+  const b = geo.randomChain(starts, 5, neighbours, daily.rng("x"));
+  assert.deepEqual(a, b);
+  assert.equal(new Set(a).size, 5);
+  for (let i = 1; i < a.length; i++) assert.ok(neighbours(a[i - 1]).includes(a[i]), `${a[i - 1]}-${a[i]}`);
+});

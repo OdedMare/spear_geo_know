@@ -58,3 +58,15 @@ export function shuffle<T>(random: () => number, items: readonly T[]): T[] {
 export function practiceSeed(): string {
   return `practice:${Date.now()}:${Math.random()}`;
 }
+
+/** The day `n` days after `key` (negative for before). */
+export function addDays(key: string, n: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** The Sunday that starts the week holding `key` (the Israeli week). */
+export function weekStart(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return addDays(key, -new Date(Date.UTC(y, m - 1, d)).getUTCDay());
+}

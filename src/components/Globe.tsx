@@ -3,7 +3,7 @@
 import { Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inShape } from "@/lib/geo";
-import { projectLonLat, projectRing, ringToVectors, rotationOf, unproject, type View } from "@/lib/projection";
+import { projectLonLat, projectRing, ringToVectors, rotate, rotationOf, unproject, type View } from "@/lib/projection";
 import type { Country, World } from "@/lib/world";
 
 export interface Focus {
@@ -24,7 +24,26 @@ interface Props {
   nameable?: (c: Country) => boolean;
   /** Slow idle spin until the player touches the globe or a focus arrives. */
   spin?: boolean;
+  /** Great-circle lines, e.g. a route between country centres. */
+  lines?: GlobeLine[];
+  /** Points on the globe, e.g. where the player tapped. */
+  markers?: GlobeMarker[];
+  /** When set, a tap reports where on the globe it landed instead of naming a country. */
+  onPick?: (at: LonLat) => void;
   label: string;
+}
+
+export type LonLat = [number, number];
+export interface GlobeLine {
+  from: LonLat;
+  to: LonLat;
+  colour?: string;
+  dashed?: boolean;
+}
+export interface GlobeMarker {
+  at: LonLat;
+  colour?: string;
+  label?: string;
 }
 
 type Prepared = { country: Country; polys: { v: Float64Array; ring: number[] }[][] }[];
@@ -41,7 +60,33 @@ function prepare(world: World): Prepared {
   return p;
 }
 
+const RAD = Math.PI / 180;
+const toVector = ([lon, lat]: LonLat): [number, number, number] => {
+  const c = Math.cos(lat * RAD);
+  return [c * Math.cos(lon * RAD), c * Math.sin(lon * RAD), Math.sin(lat * RAD)];
+};
+
+/** Points along the great circle a → b, as unit vectors. */
+function greatCircle(a: LonLat, b: LonLat, steps = 48): [number, number, number][] {
+  const va = toVector(a);
+  const vb = toVector(b);
+  const dot = Math.max(-1, Math.min(1, va[0] * vb[0] + va[1] * vb[1] + va[2] * vb[2]));
+  const omega = Math.acos(dot);
+  if (omega < 1e-6) return [va, vb];
+  const sin = Math.sin(omega);
+  const out: [number, number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const ka = Math.sin((1 - t) * omega) / sin;
+    const kb = Math.sin(t * omega) / sin;
+    out.push([ka * va[0] + kb * vb[0], ka * va[1] + kb * vb[1], ka * va[2] + kb * vb[2]]);
+  }
+  return out;
+}
+
 const MIN_ZOOM = 1;
+/** The sphere's radius as a share of half the box, leaving room for the atmosphere. */
+const GLOBE_SCALE = 0.88;
 const MAX_ZOOM = 12;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const wrap = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
@@ -58,6 +103,11 @@ function readPalette(el: HTMLElement) {
     rim: v("--globe-rim", "#9fb6cc"),
     grid: v("--globe-grid", "rgba(0,0,0,0.06)"),
     outline: v("--globe-outline", "#1d1d1f"),
+    oceanLight: v("--globe-ocean-light", "#eef5fc"),
+    oceanDeep: v("--globe-ocean-deep", "#b9d1ea"),
+    atmosphere: v("--globe-atmosphere", "rgba(120, 170, 230, 0.35)"),
+    shade: v("--globe-shade", "rgba(10, 20, 40, 0.38)"),
+    line: v("--globe-line", "#1d1d1f"),
     // Fills may name a CSS variable ("var(--found)"); the canvas needs the value.
     resolve: (colour: string) => {
       const m = /^var\((--[\w-]+)\)$/.exec(colour);
@@ -66,7 +116,18 @@ function readPalette(el: HTMLElement) {
   };
 }
 
-export default function Globe({ world, fills, outlined = [], focus, nameable, spin = false, label }: Props) {
+export default function Globe({
+  world,
+  fills,
+  outlined = [],
+  focus,
+  nameable,
+  spin = false,
+  lines = [],
+  markers = [],
+  onPick,
+  label,
+}: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = useRef<View & { zoom: number }>({ lon: 35, lat: 25, zoom: 1 });
@@ -75,7 +136,7 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
   const frame = useRef(0);
   const anim = useRef<{ from: View & { zoom: number }; to: View & { zoom: number }; t0: number } | null>(null);
   const spinning = useRef(spin && !reducedMotion());
-  const props = useRef({ fills, outlined });
+  const props = useRef({ fills, outlined, lines, markers });
   const tickRef = useRef<(now: number) => void>(() => {});
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
 
@@ -88,17 +149,35 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
     const { w, h, dpr } = size.current;
     const pal = (palette.current ??= readPalette(canvas));
     const v = view.current;
-    const R = (Math.min(w, h) / 2) * 0.94 * v.zoom;
+    const R = (Math.min(w, h) / 2) * GLOBE_SCALE * v.zoom;
     const cx = w / 2;
     const cy = h / 2;
     const r = rotationOf(v);
-    const { fills: colours, outlined: heavy } = props.current;
+    const { fills: colours, outlined: heavy, lines: arcs, markers: pins } = props.current;
+    // The light comes from the upper left, as on a desk globe.
+    const lx = cx - R * 0.38;
+    const ly = cy - R * 0.42;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+
+    // Atmosphere: a soft halo just outside the sphere.
+    const halo = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.12);
+    halo.addColorStop(0, pal.atmosphere);
+    halo.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ocean, lit from the upper left.
+    const sea = ctx.createRadialGradient(lx, ly, R * 0.05, cx, cy, R);
+    sea.addColorStop(0, pal.oceanLight);
+    sea.addColorStop(0.55, pal.ocean);
+    sea.addColorStop(1, pal.oceanDeep);
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.fillStyle = pal.ocean;
+    ctx.fillStyle = sea;
     ctx.fill();
 
     // Graticule every 30°.
@@ -162,11 +241,67 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
     ctx.lineWidth = 2;
     for (const p of heavyPaths) ctx.stroke(p);
 
+    // Lines along great circles; the hidden stretch behind the globe is skipped.
+    ctx.lineCap = "round";
+    for (const line of arcs) {
+      ctx.beginPath();
+      let pen = false;
+      for (const [x0, y0, z0] of greatCircle(line.from, line.to)) {
+        const [x, y, z] = rotate(r, x0, y0, z0);
+        if (z < 0) {
+          pen = false;
+          continue;
+        }
+        if (pen) ctx.lineTo(cx + R * x, cy - R * y);
+        else ctx.moveTo(cx + R * x, cy - R * y);
+        pen = true;
+      }
+      ctx.setLineDash(line.dashed ? [6, 6] : []);
+      ctx.strokeStyle = pal.resolve(line.colour ?? pal.line);
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Shading over everything on the sphere: a highlight where the light
+    // falls and a darkening towards the edge, which is what reads as 3D.
+    const shade = ctx.createRadialGradient(lx, ly, 0, lx, ly, R * 1.55);
+    shade.addColorStop(0, "rgba(255, 255, 255, 0.22)");
+    shade.addColorStop(0.3, "rgba(255, 255, 255, 0)");
+    shade.addColorStop(0.62, "rgba(0, 0, 0, 0)");
+    shade.addColorStop(1, pal.shade);
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = shade;
+    ctx.fill();
     ctx.strokeStyle = pal.rim;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1;
     ctx.stroke();
+
+    // Markers sit on top of the shading so they stay crisp.
+    for (const m of pins) {
+      const [x0, y0, z0] = toVector(m.at);
+      const [x, y, z] = rotate(r, x0, y0, z0);
+      if (z < 0) continue;
+      const px = cx + R * x;
+      const py = cy - R * y;
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, Math.PI * 2);
+      ctx.fillStyle = pal.resolve(m.colour ?? pal.line);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+      if (m.label) {
+        ctx.font = "600 13px " + getComputedStyle(canvas).fontFamily;
+        ctx.textAlign = "center";
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.strokeText(m.label, px, py - 12);
+        ctx.fillStyle = "#1d1d1f";
+        ctx.fillText(m.label, px, py - 12);
+      }
+    }
   }, [world]);
 
   const schedule = useCallback(() => {
@@ -229,9 +364,9 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
   }, [schedule]);
 
   useEffect(() => {
-    props.current = { fills, outlined };
+    props.current = { fills, outlined, lines, markers };
     schedule();
-  }, [fills, outlined, schedule]);
+  }, [fills, outlined, lines, markers, schedule]);
 
   useEffect(() => {
     if (!focus) return;
@@ -252,7 +387,7 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef({ moved: 0, pinch: 0 });
 
-  const radius = () => (Math.min(size.current.w, size.current.h) / 2) * 0.94 * view.current.zoom;
+  const radius = () => (Math.min(size.current.w, size.current.h) / 2) * GLOBE_SCALE * view.current.zoom;
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -311,6 +446,10 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
     const R = radius();
     const ll = unproject(view.current, (px - size.current.w / 2) / R, -(py - size.current.h / 2) / R);
     if (!ll) return;
+    if (onPick) {
+      onPick(ll);
+      return;
+    }
     const can = nameable ?? ((c: Country) => c.id in props.current.fills);
     const hit = world.mapped.find((c) => inShape(ll[0], ll[1], c.shape!));
     if (hit && can(hit)) setTip({ x: px, y: py, text: hit.he });
@@ -321,7 +460,7 @@ export default function Globe({ world, fills, outlined = [], focus, nameable, sp
   };
 
   return (
-    <div className="globe" ref={wrapRef}>
+    <div className={onPick ? "globe is-picking" : "globe"} ref={wrapRef}>
       <canvas
         ref={canvasRef}
         role="img"

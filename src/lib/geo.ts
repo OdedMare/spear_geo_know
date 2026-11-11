@@ -196,3 +196,32 @@ export function connectsThrough(
   const ok = (id: string) => id === end || allowed.has(id);
   return shortestPath(start, end, (id) => neighbours(id).filter(ok)) !== null;
 }
+
+/** Countries that border both `a` and `b`: every valid missing link between them. */
+export function linksBetween(a: string, b: string, neighbours: (id: string) => string[], exclude: string[] = []): string[] {
+  const nb = new Set(neighbours(b));
+  return neighbours(a).filter((n) => nb.has(n) && n !== a && n !== b && !exclude.includes(n));
+}
+
+/**
+ * A chain of `length` countries, each bordering the next, with no repeats.
+ * `random` drives every choice, so a seed always builds the same chain.
+ */
+export function randomChain(
+  starts: string[],
+  length: number,
+  neighbours: (id: string) => string[],
+  random: () => number,
+  usable: (id: string) => boolean = () => true,
+): string[] | null {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const chain = [starts[Math.floor(random() * starts.length)]];
+    while (chain.length < length) {
+      const next = neighbours(chain[chain.length - 1]).filter((n) => usable(n) && !chain.includes(n));
+      if (!next.length) break;
+      chain.push(next[Math.floor(random() * next.length)]);
+    }
+    if (chain.length === length) return chain;
+  }
+  return null;
+}

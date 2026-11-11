@@ -6,15 +6,18 @@ import { pick, rng } from "@/lib/daily";
 import { bearingDeg, centerDistanceKm, compassArrow, compassName, proximityPercent } from "@/lib/geo";
 import { GAMES } from "@/lib/games";
 import { silhouette } from "@/lib/silhouette";
+import { pool } from "@/lib/pools";
+import { shapeScore } from "@/lib/scoring";
 import { formatKm, useGameState } from "@/lib/useGameState";
-import { flagUrl } from "@/lib/world";
 import type { GameProps } from "../GamePage";
 import CountryInput from "../CountryInput";
 import Globe, { focusOn } from "../Globe";
+import CountryCard from "../CountryCard";
 import ResultCard from "../ResultCard";
 
 const MAX_GUESSES = 6;
 const HINT_AFTER = 3;
+const NEIGHBOURS_AFTER = 4;
 
 interface State {
   guesses: string[];
@@ -22,15 +25,29 @@ interface State {
   won: boolean;
 }
 
-export default function ShapeGame({ world, seed, daily, day, tag, onFinish, onAgain }: GameProps) {
-  const target = useMemo(() => {
-    const pool = world.countries.filter((c) => c.sovereign && c.shape && c.area >= 20000);
-    return pick(rng(seed), pool);
-  }, [world, seed]);
-  const outline = useMemo(() => silhouette(target.shape!), [target]);
-  const answerFocus = useMemo(() => focusOn(target), [target]);
-
+export default function ShapeGame({ world, seed, daily, day, tag, options, onFinish, onAgain }: GameProps) {
+  // Easy keeps big, recognisable shapes; hard lets in the small ones too.
+  const minArea = options.difficulty === "hard" ? 2000 : options.difficulty === "easy" ? 100000 : 20000;
+  const target = useMemo(
+    () => pick(rng(seed), pool(world.countries, options, (c) => Boolean(c.shape) && c.area >= minArea)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [world, seed],
+  );
   const [state, setState] = useGameState<State>("shape", day, daily, { guesses: [], done: false, won: false });
+  const wrong = state.guesses.filter((g) => g !== target.id).length;
+  const showNeighbours = wrong >= NEIGHBOURS_AFTER && !state.done && target.borders.length > 0;
+
+  const outline = useMemo(
+    () =>
+      silhouette(
+        target.shape!,
+        100,
+        6,
+        showNeighbours ? target.borders.map((id) => world.byId.get(id)?.shape).filter((x): x is NonNullable<typeof x> => Boolean(x)) : [],
+      ),
+    [target, showNeighbours, world],
+  );
+  const answerFocus = useMemo(() => focusOn(target), [target]);
 
   const rows = state.guesses.map((id) => {
     const c = world.byId.get(id)!;
@@ -46,11 +63,16 @@ export default function ShapeGame({ world, seed, daily, day, tag, onFinish, onAg
     const won = id === target.id;
     const done = won || guesses.length >= MAX_GUESSES;
     setState({ guesses, done, won });
-    if (done) onFinish(won);
+    if (done)
+      onFinish({
+        won,
+        points: shapeScore(guesses.length, won),
+        summary: won ? `${guesses.length}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`,
+        tags: won && guesses.length === 1 ? ["first-try"] : [],
+      });
   };
 
   const used = useMemo(() => new Set(state.guesses), [state.guesses]);
-  const wrong = state.guesses.filter((g) => g !== target.id).length;
 
   const squares = (pct: number) => {
     const full = Math.floor(pct / 20);
@@ -64,9 +86,11 @@ export default function ShapeGame({ world, seed, daily, day, tag, onFinish, onAg
   const fills = useMemo<Record<string, string>>(() => {
     const f: Record<string, string> = {};
     for (const id of state.guesses) f[id] = "var(--reveal)";
-    f[target.id] = "var(--found)";
+    if (state.done) f[target.id] = "var(--found)";
     return f;
-  }, [state.guesses, target]);
+  }, [state.guesses, state.done, target]);
+  const lastGuess = state.guesses.length ? world.byId.get(state.guesses[state.guesses.length - 1]) : undefined;
+  const guessFocus = useMemo(() => (lastGuess ? focusOn(lastGuess, 1.4) : null), [lastGuess]);
 
   return (
     <div className="game-layout">
@@ -74,11 +98,18 @@ export default function ShapeGame({ world, seed, daily, day, tag, onFinish, onAg
         {state.done ? (
           <Globe world={world} fills={fills} focus={answerFocus} label={`גלובוס: ${target.he} מסומנת`} />
         ) : (
-          <figure className="silhouette">
-            <svg viewBox={outline.viewBox} role="img" aria-label="קווי המתאר של המדינה הסודית">
-              <path d={outline.d} fillRule="evenodd" />
-            </svg>
-          </figure>
+          <div className="shape-stage">
+            <figure className="silhouette">
+              <svg viewBox={outline.viewBox} role="img" aria-label="קווי המתאר של המדינה הסודית">
+                {outline.context && <path className="silhouette-context" d={outline.context} fillRule="evenodd" />}
+                <path d={outline.d} fillRule="evenodd" />
+              </svg>
+              {showNeighbours && <figcaption className="muted small">רמז: השכנות מופיעות סביב הצללית</figcaption>}
+            </figure>
+            <div className="globe-mini">
+              <Globe world={world} fills={fills} focus={guessFocus} spin={!lastGuess} label="גלובוס עם המדינות שניחשתם" />
+            </div>
+          </div>
         )}
       </div>
 
@@ -103,15 +134,12 @@ export default function ShapeGame({ world, seed, daily, day, tag, onFinish, onAg
             onAgain={onAgain}
             againLabel="צללית חדשה"
           >
-            <div className="answer-line">
-              {target.flag && <img src={flagUrl(target)} alt="" className="flag-sm" />}
-              <span>
-                {target.he} · {target.continent}
-              </span>
-              <svg viewBox={outline.viewBox} className="silhouette-mini" aria-hidden>
-                <path d={outline.d} fillRule="evenodd" />
-              </svg>
-            </div>
+            {state.won && (
+              <p className="score-line">
+                <strong>{shapeScore(state.guesses.length, true)}</strong> נקודות · ניחוש {state.guesses.length}
+              </p>
+            )}
+            <CountryCard country={target} world={world} />
           </ResultCard>
         )}
 

@@ -17,3 +17,15 @@ test("far-flung territories are left out", () => {
   const all = byId.get("USA").shape.reduce((n, p) => n + p.length, 0);
   assert.ok(usa - 1 < all, "Alaska and Hawaii should be dropped");
 });
+
+test("a neighbour hint draws the neighbours and zooms out", () => {
+  const alone = silhouette(byId.get("CHE").shape);
+  const hinted = silhouette(byId.get("CHE").shape, 100, 6, ["FRA", "DEU", "ITA", "AUT", "LIE"].map((id) => byId.get(id).shape));
+  assert.equal(alone.context, "");
+  assert.ok(hinted.context.length > 100);
+  const span = (d) => {
+    const xs = d.match(/-?\d+\.\d+/g).map(Number).filter((_, i) => i % 2 === 0);
+    return Math.max(...xs) - Math.min(...xs);
+  };
+  assert.ok(span(hinted.d) < span(alone.d), "Switzerland is smaller once its neighbours are in the frame");
+});

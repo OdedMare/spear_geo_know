@@ -20,3 +20,9 @@ test("the same seed gives the whole team the same puzzle", () => {
   assert.equal(daily.pick(daily.rng("route:2026-11-11"), items), daily.pick(daily.rng("route:2026-11-11"), items));
   assert.notDeepEqual(daily.shuffle(daily.rng("a"), items), daily.shuffle(daily.rng("b"), items));
 });
+
+test("weeks start on Sunday", () => {
+  assert.equal(daily.weekStart("2026-11-11"), "2026-11-08"); // a Wednesday
+  assert.equal(daily.weekStart("2026-11-08"), "2026-11-08");
+  assert.equal(daily.addDays("2026-11-08", 6), "2026-11-14");
+});

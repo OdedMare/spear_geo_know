@@ -8,10 +8,16 @@ const RAD = Math.PI / 180;
 
 export interface Silhouette {
   d: string;
+  /** The neighbours drawn around it, in the same frame, when asked for. */
+  context: string;
   viewBox: string;
 }
 
-export function silhouette(shape: Shape, size = 100, pad = 6): Silhouette {
+/**
+ * `context` shapes (the neighbours, for a hint) are drawn in the same frame;
+ * the frame then zooms out so they show around the country.
+ */
+export function silhouette(shape: Shape, size = 100, pad = 6, context: Shape[] = []): Silhouette {
   // Work in a local equirectangular frame around the largest polygon.
   const polys = shape.map((poly) => poly.map(toPoints));
   const outerArea = (p: [number, number][][]) => Math.abs(signedArea(p[0]));
@@ -42,20 +48,38 @@ export function silhouette(shape: Shape, size = 100, pad = 6): Silhouette {
       minY = Math.min(minY, y);
       maxY = Math.max(maxY, y);
     }
+  if (context.length) {
+    const grow = 0.35 * Math.max(maxX - minX, maxY - minY);
+    minX -= grow;
+    minY -= grow;
+    maxX += grow;
+    maxY += grow;
+  }
   const scale = (size - 2 * pad) / Math.max(maxX - minX, maxY - minY, 1e-6);
   const offX = pad + ((size - 2 * pad) - (maxX - minX) * scale) / 2;
   const offY = pad + ((size - 2 * pad) - (maxY - minY) * scale) / 2;
 
-  const parts: string[] = [];
-  for (const poly of kept)
-    for (const ring of poly) {
-      parts.push(
-        ring
-          .map(([x, y], i) => `${i ? "L" : "M"}${((x - minX) * scale + offX).toFixed(2)} ${((y - minY) * scale + offY).toFixed(2)}`)
-          .join("") + "Z",
-      );
-    }
-  return { d: parts.join(""), viewBox: `0 0 ${size} ${size}` };
+  const path = (list: [number, number][][][]) => {
+    const parts: string[] = [];
+    for (const poly of list)
+      for (const ring of poly) {
+        parts.push(
+          ring
+            .map(([x, y], i) => `${i ? "L" : "M"}${((x - minX) * scale + offX).toFixed(2)} ${((y - minY) * scale + offY).toFixed(2)}`)
+            .join("") + "Z",
+        );
+      }
+    return parts.join("");
+  };
+
+  const around = context
+    .flatMap((other) => other.map((poly) => poly.map((ring) => toPoints(ring).map(local))))
+    .filter((poly) => {
+      const [cx, cy] = centroid(poly[0]);
+      return Math.hypot(cx, cy) <= reach * 2.5;
+    });
+
+  return { d: path(kept), context: path(around), viewBox: `0 0 ${size} ${size}` };
 }
 
 function toPoints(ring: number[]): [number, number][] {

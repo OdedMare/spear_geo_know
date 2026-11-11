@@ -1,20 +1,40 @@
 # גלובוס — משחקי גיאוגרפיה לצוות
 
-Four daily geography games for the team. Everyone who opens a game on the same
-day (Israel time) gets the same puzzle, so results can be compared: each game
-ends with a "copy result" button that produces a short emoji summary to paste
-into the team chat.
+Twelve daily geography games for the team, around a 3D globe. Everyone who
+opens a game on the same day (Israel time) gets the same puzzle, every daily
+game is worth up to 100 points, and a team table shows who leads today and
+who is champion of the week.
 
+### On the globe
 | Game | Route | What you do |
 |---|---|---|
-| **חם וקר** | `/hot-cold` | Find the secret country on a 3D globe. Every guess is painted by its border distance from the answer, pale (far) to dark red (close). Unlimited guesses. |
-| **מסלול** | `/route` | Get a start and an end country; name the countries along the shortest land route between them. Green = on a shortest route, orange = a small detour, red = off course. A hint shades the next country on the globe without naming it. |
-| **דגלים** | `/flags` | Ten rounds, four options each. Odd rounds show a flag (pick the country), even rounds show a country (pick its flag). Wrong options come from the same continent. |
-| **צללית** | `/shape` | Identify a country by its outline in six guesses. Each guess gives distance, a direction arrow and a proximity %. After three misses the continent is revealed. |
+| **חם וקר** | `/hot-cold` | Find the secret country. Each guess is painted by border distance from the answer, pale (far) to dark red (close). Fewer guesses, more points. |
+| **מסלול** | `/route` | Name the countries on the shortest land route between two countries. **The contest is the fewest countries**: a route of exactly the minimum with no hints is ⭐⭐⭐ and 100 points; every extra country and every hint costs points. Guessed neighbours join up on the globe as the route grows. |
+| **הצבע על המפה** | `/pin` | Five countries; tap where each one is on the globe. Inside it is 100, then points fall with distance from its border. |
+| **השכנים** | `/neighbors` | Name every country that borders the one marked. Three mistakes end it. |
+| **החוליה החסרה** | `/chain` | A chain of bordering countries with one missing; name any country that borders both sides of the gap. |
+| **צללית** | `/shape` | Identify a country from its outline in six guesses: distance, direction and proximity after each; the continent after three misses, the neighbours drawn around it after four. |
 
-Each game also has a **תרגול** (practice) mode with a fresh random puzzle.
-Progress and stats (played, success rate, streak) are kept per browser in
-`localStorage`; there is no server and no sign-in.
+### Flags and capitals
+| Game | Route | What you do |
+|---|---|---|
+| **דגלים** | `/flags` | Ten rounds: flag → country and country → flag. The globe turns to each answer. |
+| **ריצת דגלים** | `/flag-rush` | As many flags as you can in 60 seconds; a mistake costs 5 seconds. |
+| **בירות** | `/capitals` | Ten rounds: country → capital and capital → country (Hebrew names). |
+
+### Knowledge and speed
+| Game | Route | What you do |
+|---|---|---|
+| **גדול או קטן** | `/bigger` | Which of two countries is bigger by area? A streak until the first mistake. |
+| **מי יותר מאוכלסת** | `/population` | The same, by population (Natural Earth, 2019 estimates). |
+| **יבשת בדקה** | `/continent` | A country → its continent, as many as you can in 60 seconds. |
+
+### For the team
+- **Team table** (`/leaderboard`): each daily result is sent under the player's name. Today per game and in total, and the week (Sunday to Saturday) with its champion. One result per person, game and day; the first counts.
+- **Challenge a friend**: every result card copies a link to the exact same puzzle (also for practice rounds, with their settings).
+- **Practice mode** with difficulty (easy keeps the best-known countries, hard has them all) and a continent filter.
+- **Badges** (17), kept per browser and shown on the home page.
+- At the end of a game, a card about the country: continent, capital, area, population, land neighbours.
 
 ## Stack
 
@@ -36,17 +56,22 @@ npm run dev        # http://localhost:3000
 npm test           # geometry, projection, daily seeding, name search
 npm run lint
 npm run build      # static site in out/
-npm start          # serves out/ on http://localhost:3000 (node serve.mjs, no dependencies)
+npm start          # site + team table on http://localhost:3000 (node serve.mjs, no dependencies)
 ```
 
-Docker: `docker build -t geo-games . && docker run -p 3000:3000 geo-games`.
+The team table is the only part with a server: `serve.mjs` answers
+`/api/scores` and keeps results in `data/scores.json` (set `GEO_DATA_DIR` to
+put it elsewhere, e.g. a mounted volume). Served any other way (nginx, IIS,
+`npm run dev`), the games work and the table says it is not available.
+
+Docker: `docker build -t geo-games . && docker run -p 3000:3000 -v geo-scores:/app/data geo-games` (the volume keeps the team table).
 
 ## Closed networks (no internet)
 
 The app makes no request outside its own site. Everything it shows is in the
 repository and served by the app itself:
 
-- `public/data/world.json` — every country: Hebrew and English names, outline, land borders, continent
+- `public/data/world.json` — every country: Hebrew and English names, outline, land borders, continent, capital (Hebrew), area, population
 - `public/flags/*.svg` — 249 flags
 - `public/fonts/*.woff2` — Inter and Noto Sans Hebrew (OFL-1.1)
 
@@ -67,7 +92,11 @@ rebuild them, put the three sources in one directory and run the script:
 <src>/countries.json      # github.com/mledoze/countries (ODbL)
 <src>/world-atlas/        # npm package world-atlas (Natural Earth 1:50m, ISC)
 <src>/flag-icons/         # npm package flag-icons (MIT)
+<src>/ne50.geojson        # Natural Earth ne_50m_admin_0_countries (public domain), for population
 ```
+
+Hebrew capital names are in `scripts/capitals-he.json` (Palestine is left out
+of the capitals game on purpose: its capital is disputed).
 
 ```bash
 npm run data -- <src>
@@ -84,9 +113,11 @@ Melilla).
 ```
 scripts/build-data.mjs    data pipeline (shapes, borders, names, flags)
 src/app/                  pages: home + one per game
-src/components/Globe.tsx  canvas globe
-src/components/games/     the four games
-src/components/GamePage   shared shell: daily/practice switch, rules, stats
-src/lib/                  pure logic (geo, projection, daily, names, silhouette, heat)
+src/components/Globe.tsx  canvas globe: lighting, atmosphere, lines, markers, tap-to-pick
+src/components/games/     the twelve games (FlagsGame also serves capitals, TimedQuiz the two timed games)
+src/components/GamePage   shared shell: daily/practice/challenge, options, rules, stats, badges
+src/components/Leaderboard, TeamPanel   the team table
+src/lib/                  pure logic (geo, projection, daily, names, pools, scoring, badges, silhouette, heat)
+serve.mjs                 static server + /api/scores, no dependencies
 tests/                    node --test, loading src/lib/*.ts through the TS compiler
 ```

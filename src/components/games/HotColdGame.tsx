@@ -6,11 +6,13 @@ import { pick, rng } from "@/lib/daily";
 import { borderDistanceKm } from "@/lib/geo";
 import { heatColor, heatEmoji, heatWord } from "@/lib/heat";
 import { GAMES } from "@/lib/games";
+import { pool } from "@/lib/pools";
+import { hotColdScore } from "@/lib/scoring";
 import { formatKm, useGameState } from "@/lib/useGameState";
-import { flagUrl } from "@/lib/world";
 import type { GameProps } from "../GamePage";
 import CountryInput from "../CountryInput";
 import Globe, { focusOn, type Focus } from "../Globe";
+import CountryCard from "../CountryCard";
 import ResultCard from "../ResultCard";
 
 interface State {
@@ -19,11 +21,12 @@ interface State {
   won: boolean;
 }
 
-export default function HotColdGame({ world, seed, daily, day, tag, onFinish, onAgain }: GameProps) {
-  const target = useMemo(() => {
-    const pool = world.countries.filter((c) => c.sovereign && c.shape && c.area >= 1500);
-    return pick(rng(seed), pool);
-  }, [world, seed]);
+export default function HotColdGame({ world, seed, daily, day, tag, options, onFinish, onAgain }: GameProps) {
+  const target = useMemo(
+    () => pick(rng(seed), pool(world.countries, options, (c) => Boolean(c.shape) && c.area >= 1500)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [world, seed],
+  );
 
   const [state, setState] = useGameState<State>("hotcold", day, daily, { guesses: [], done: false, won: false });
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -51,13 +54,16 @@ export default function HotColdGame({ world, seed, daily, day, tag, onFinish, on
     setState((s) => ({ guesses: [...s.guesses, id], done: won, won }));
     const c = world.byId.get(id)!;
     setFocus(focusOn(c));
-    if (won) onFinish(true);
+    if (won) {
+      const n = state.guesses.length + 1;
+      onFinish({ won, points: hotColdScore(n, true), summary: `${n} ניחושים`, tags: n <= 5 ? ["quick"] : [] });
+    }
   };
 
   const giveUp = () => {
     setState((s) => ({ ...s, done: true, won: false }));
     setFocus(focusOn(target));
-    onFinish(false);
+    onFinish({ won: false, points: 0, summary: "ויתר/ה" });
   };
 
   const sorted = [...scored].sort((a, b) => a.km - b.km || a.order - b.order);
@@ -115,13 +121,12 @@ export default function HotColdGame({ world, seed, daily, day, tag, onFinish, on
             onAgain={onAgain}
             againLabel="סיבוב תרגול"
           >
-            <div className="answer-line">
-              {target.flag && <img src={flagUrl(target)} alt="" className="flag-sm" />}
-              <span>
-                {target.he} · {target.continent}
-                {state.won && ` · ${state.guesses.length} ניחושים`}
-              </span>
-            </div>
+            {state.won && (
+              <p className="score-line">
+                <strong>{hotColdScore(state.guesses.length, true)}</strong> נקודות · {state.guesses.length} ניחושים
+              </p>
+            )}
+            <CountryCard country={target} world={world} />
           </ResultCard>
         )}
 

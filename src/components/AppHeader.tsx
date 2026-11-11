@@ -7,10 +7,16 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { useTheme } from "@/hooks/useTheme";
 import { GAME_LIST } from "@/lib/games";
 
+const NAV = [
+  { href: "/", title: "משחקים" },
+  { href: "/leaderboard", title: "טבלת הצוות" },
+];
+
 export default function AppHeader() {
   const path = usePathname();
   const { theme, toggle } = useTheme();
   const hydrated = useHydrated();
+  const current = GAME_LIST.find((g) => path.replace(/\/$/, "") === g.href);
 
   return (
     <header className="app-header">
@@ -20,12 +26,13 @@ export default function AppHeader() {
         </span>
         גלובוס
       </Link>
-      <nav aria-label="משחקים">
-        {GAME_LIST.map((g) => (
-          <Link key={g.id} href={g.href} aria-current={path.replace(/\/$/, "") === g.href ? "page" : undefined}>
-            {g.title}
+      <nav aria-label="ניווט">
+        {NAV.map((n) => (
+          <Link key={n.href} href={n.href} aria-current={(path.replace(/\/$/, "") || "/") === n.href ? "page" : undefined}>
+            {n.title}
           </Link>
         ))}
+        {current && <span className="nav-current">{current.title}</span>}
       </nav>
       <button type="button" className="icon-button" onClick={toggle} aria-label={theme === "dark" ? "מצב בהיר" : "מצב כהה"}
         suppressHydrationWarning>

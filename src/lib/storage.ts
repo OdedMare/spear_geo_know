@@ -4,7 +4,29 @@
 // game's running stats. Every access is guarded: private windows and blocked
 // storage simply start fresh.
 
-export type GameId = "hotcold" | "route" | "flags" | "shape";
+export type GameId =
+  | "hotcold"
+  | "route"
+  | "flags"
+  | "shape"
+  | "pin"
+  | "neighbors"
+  | "bigger"
+  | "population"
+  | "continent"
+  | "chain"
+  | "flagrush"
+  | "capitals";
+
+/** What a finished game reports: points (0–100) rank the team table. */
+export interface GameResult {
+  won: boolean;
+  points: number;
+  /** A few words for the team table, e.g. "7 ניחושים". */
+  summary: string;
+  /** Achievements this game unlocked, read by lib/badges.ts. */
+  tags?: string[];
+}
 
 export interface Stats {
   played: number;
@@ -69,3 +91,9 @@ export function dailyStatus(game: GameId, day: string): DailyStatus | null {
   const s = read<{ done?: boolean; won?: boolean }>(`geo.${game}.${day}`);
   return s ? { done: Boolean(s.done), won: Boolean(s.won) } : null;
 }
+
+export const saveResult = (game: GameId, day: string, result: GameResult) => write(`geo.${game}.${day}.result`, result);
+export const loadResult = (game: GameId, day: string) => read<GameResult>(`geo.${game}.${day}.result`);
+
+export const loadJSON = read;
+export const saveJSON = write;

@@ -2,9 +2,11 @@
 //   world-atlas (countries-50m.json, ISC)     — country shapes, Natural Earth 1:50m
 //   mledoze/countries (countries.json, ODbL)  — ISO codes, land borders, region, area
 //   flag-icons (flags/4x3/*.svg, MIT)         — flags
+//   Natural Earth admin-0 (ne_50m_admin_0_countries.geojson, public domain) — population
+// Hebrew capital names are in scripts/capitals-he.json.
 // Hebrew names come from the ICU data built into Node (Intl.DisplayNames), with a
 // few overrides below. Run once when the data should change:
-//   node scripts/build-data.mjs <dir with countries.json, world-atlas/, flag-icons/>
+//   node scripts/build-data.mjs <dir with countries.json, world-atlas/, flag-icons/, ne50.geojson>
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +21,15 @@ if (!src) {
 const topo = JSON.parse(fs.readFileSync(path.join(src, "world-atlas/countries-50m.json"), "utf8"));
 const meta = JSON.parse(fs.readFileSync(path.join(src, "countries.json"), "utf8"));
 const flagDir = path.join(src, "flag-icons/flags/4x3");
+const capitalsHe = JSON.parse(fs.readFileSync(path.join(root, "scripts/capitals-he.json"), "utf8"));
+
+// Population estimates (Natural Earth POP_EST, 2019), by ISO alpha-3.
+const ne = JSON.parse(fs.readFileSync(path.join(src, "ne50.geojson"), "utf8"));
+const population = new Map();
+for (const { properties: p } of ne.features) {
+  const key = p.ADMIN === "Kosovo" ? "UNK" : [p.ISO_A3, p.ADM0_A3, p.ISO_A3_EH].find((v) => v && v !== "-99");
+  if (key && !population.has(key) && p.POP_EST > 0) population.set(key, Math.round(p.POP_EST));
+}
 
 // ---- TopoJSON decoding (quantized, delta-encoded arcs) ----
 const { scale, translate } = topo.transform;
@@ -185,6 +196,8 @@ for (const c of meta) {
     continent: continentOf(c),
     sovereign: Boolean(c.unMember || EXTRA_SOVEREIGN.has(c.cca3)),
     area: Math.round(c.area ?? 0),
+    pop: population.get(c.cca3) ?? 0,
+    capital: capitalsHe[c.cca3] ?? null,
     center: c.latlng?.length === 2 ? [Number(c.latlng[1].toFixed(2)), Number(c.latlng[0].toFixed(2))] : null,
     borders: [],
     _borders: c.borders ?? [],

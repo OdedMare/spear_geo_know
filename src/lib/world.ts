@@ -12,6 +12,8 @@ export interface Country {
   continent: string;
   sovereign: boolean;
   area: number; // km²
+  pop: number; // population estimate (Natural Earth, 2019)
+  capital: string | null; // Hebrew
   center: LonLat | null;
   borders: string[];
   flag: boolean;

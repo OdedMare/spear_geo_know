@@ -1,4 +1,18 @@
-import { Flag, Flame, Route, Shapes, type LucideIcon } from "lucide-react";
+import {
+  ArrowUpDown,
+  Clock,
+  Flag,
+  Flame,
+  Landmark,
+  Link2,
+  MapPin,
+  Route,
+  Shapes,
+  Users,
+  Waypoints,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import type { GameId } from "./storage";
 
 export interface GameMeta {
@@ -10,8 +24,17 @@ export interface GameMeta {
   icon: LucideIcon;
   color: string;
   tint: string;
+  group: "globe" | "flags" | "knowledge";
+  /** Whether the practice continent filter means anything for this game. */
+  continentFilter: boolean;
   rules: string[];
 }
+
+export const GROUPS: { id: GameMeta["group"]; title: string }[] = [
+  { id: "globe", title: "על הגלובוס" },
+  { id: "flags", title: "דגלים ובירות" },
+  { id: "knowledge", title: "ידע ומהירות" },
+];
 
 export const GAMES: Record<GameId, GameMeta> = {
   hotcold: {
@@ -23,11 +46,13 @@ export const GAMES: Record<GameId, GameMeta> = {
     icon: Flame,
     color: "var(--hue-pink)",
     tint: "var(--hue-pink-soft)",
+    group: "globe",
+    continentFilter: true,
     rules: [
       "בכל יום מסתתרת על הגלובוס מדינה אחת.",
       "נחשו מדינה כלשהי — היא תיצבע לפי המרחק מהמדינה הסודית: ככל שהיא חמה ואדומה יותר, אתם קרובים יותר.",
       "המרחק נמדד בין הגבולות. מדינה שגובלת במדינה הסודית מסומנת כ״גובלת״.",
-      "אין הגבלת ניחושים — נסו למצוא אותה בכמה שפחות.",
+      "אין הגבלת ניחושים. הניקוד יורד עם כל ניחוש נוסף.",
       "גררו כדי לסובב את הגלובוס, צבטו או גללו כדי להתקרב, והקישו על מדינה צבועה כדי לראות את שמה.",
     ],
   },
@@ -40,26 +65,64 @@ export const GAMES: Record<GameId, GameMeta> = {
     icon: Route,
     color: "var(--hue-teal)",
     tint: "var(--hue-teal-soft)",
+    group: "globe",
+    continentFilter: true,
     rules: [
       "קיבלתם מדינת מוצא ומדינת יעד. מצאו מסלול יבשתי ביניהן — רק דרך גבולות משותפים.",
       "נחשו את המדינות שבדרך. ירוק: על אחד המסלולים הקצרים ביותר. כתום: עיקוף קטן. אדום: רחוק מהמסלול.",
-      "המשחק נגמר כשהמדינות שניחשתם מחברות את המוצא ליעד.",
-      "יש לכם כמה ניחושים מעבר למינימום. רמז מסמן על הגלובוס את המדינה הבאה במסלול, בלי השם שלה.",
+      "התחרות היא על מינימום מדינות: מסלול באורך המינימום בלי רמזים הוא ⭐⭐⭐ ומקבל 100 נקודות. כל מדינה מיותרת וכל רמז מורידים ניקוד.",
+      "המדינות שניחשתם מתחברות על הגלובוס בקו, כך שרואים את המסלול נבנה.",
     ],
   },
-  flags: {
-    id: "flags",
-    href: "/flags",
-    title: "דגלים",
-    tagline: "עשרה דגלים, ארבע אפשרויות",
-    emoji: "🚩",
-    icon: Flag,
+  pin: {
+    id: "pin",
+    href: "/pin",
+    title: "הצבע על המפה",
+    tagline: "איפה המדינה? הקישו עליה על הגלובוס",
+    emoji: "📍",
+    icon: MapPin,
+    color: "var(--hue-pink)",
+    tint: "var(--hue-pink-soft)",
+    group: "globe",
+    continentFilter: true,
+    rules: [
+      "חמישה סבבים. בכל סבב מופיע שם של מדינה — סובבו את הגלובוס והקישו במקום שבו היא נמצאת.",
+      "קליעה בתוך המדינה שווה 100 נקודות. מחוץ לה הניקוד יורד לפי המרחק מהגבול הקרוב.",
+      "אין שמות על הגלובוס — רק הגבולות.",
+    ],
+  },
+  neighbors: {
+    id: "neighbors",
+    href: "/neighbors",
+    title: "השכנים",
+    tagline: "מנו את כל המדינות שגובלות במדינה",
+    emoji: "🏘️",
+    icon: Users,
+    color: "var(--hue-teal)",
+    tint: "var(--hue-teal-soft)",
+    group: "globe",
+    continentFilter: true,
+    rules: [
+      "מסומנת לכם מדינה על הגלובוס. כתבו את כל המדינות שיש להן איתה גבול יבשתי.",
+      "כל שכן שמצאתם נצבע בירוק. שלוש טעויות — והמשחק נגמר.",
+      "הניקוד הוא אחוז השכנים שמצאתם.",
+    ],
+  },
+  chain: {
+    id: "chain",
+    href: "/chain",
+    title: "החוליה החסרה",
+    tagline: "השלימו את המדינה שחסרה בשרשרת",
+    emoji: "🔗",
+    icon: Link2,
     color: "var(--hue-violet)",
     tint: "var(--hue-violet-soft)",
+    group: "globe",
+    continentFilter: true,
     rules: [
-      "עשרה סבבים. בחלק תראו דגל ותבחרו את המדינה, ובחלק תראו מדינה ותבחרו את הדגל שלה.",
-      "האפשרויות השגויות הן לרוב מאותה יבשת — שימו לב לפרטים.",
-      "7 תשובות נכונות ומעלה נחשבות הצלחה ברצף היומי.",
+      "חמישה סבבים. בכל סבב יש שרשרת של מדינות שכל אחת גובלת בבאה אחריה — ואחת מהן חסרה.",
+      "כתבו מדינה שגובלת גם במדינה שלפני החור וגם במדינה שאחריו. כל תשובה כזאת נכונה.",
+      "שלושה ניסיונות לכל סבב. 20 נקודות לסבב, פחות 5 על כל טעות.",
     ],
   },
   shape: {
@@ -71,12 +134,127 @@ export const GAMES: Record<GameId, GameMeta> = {
     icon: Shapes,
     color: "var(--hue-blue)",
     tint: "var(--hue-blue-soft)",
+    group: "globe",
+    continentFilter: true,
     rules: [
       "לפניכם קווי המתאר של מדינה. יש לכם שישה ניחושים.",
       "אחרי כל ניחוש תקבלו את המרחק בין מרכזי המדינות, את הכיוון אל המדינה הנכונה ואחוז קרבה.",
-      "אחרי שלושה ניחושים שגויים תקבלו רמז: היבשת.",
+      "אחרי שלושה ניחושים שגויים תקבלו רמז: היבשת. אחרי ארבעה: המדינות השכנות מופיעות סביב הצללית.",
+    ],
+  },
+  flags: {
+    id: "flags",
+    href: "/flags",
+    title: "דגלים",
+    tagline: "עשרה דגלים, ארבע אפשרויות",
+    emoji: "🚩",
+    icon: Flag,
+    color: "var(--hue-violet)",
+    tint: "var(--hue-violet-soft)",
+    group: "flags",
+    continentFilter: true,
+    rules: [
+      "עשרה סבבים. בחלק תראו דגל ותבחרו את המדינה, ובחלק תראו מדינה ותבחרו את הדגל שלה.",
+      "האפשרויות השגויות הן לרוב מאותה יבשת — שימו לב לפרטים.",
+      "אחרי כל תשובה הגלובוס מסתובב אל המדינה. 7 תשובות נכונות ומעלה נחשבות הצלחה.",
+    ],
+  },
+  flagrush: {
+    id: "flagrush",
+    href: "/flag-rush",
+    title: "ריצת דגלים",
+    tagline: "כמה דגלים תזהו בדקה?",
+    emoji: "⚡",
+    icon: Zap,
+    color: "var(--warning)",
+    tint: "var(--warning-soft)",
+    group: "flags",
+    continentFilter: true,
+    rules: [
+      "60 שניות. דגל אחרי דגל, ארבע אפשרויות לכל אחד.",
+      "כל תשובה נכונה היא נקודה. כל טעות מורידה 5 שניות מהשעון.",
+      "20 דגלים ומעלה — הצלחה.",
+    ],
+  },
+  capitals: {
+    id: "capitals",
+    href: "/capitals",
+    title: "בירות",
+    tagline: "התאימו בירה למדינה",
+    emoji: "🏛️",
+    icon: Landmark,
+    color: "var(--hue-blue)",
+    tint: "var(--hue-blue-soft)",
+    group: "flags",
+    continentFilter: true,
+    rules: [
+      "עשרה סבבים. בחלק תראו מדינה ותבחרו את הבירה שלה, ובחלק תראו בירה ותבחרו את המדינה.",
+      "המדינה מסומנת על הגלובוס אחרי כל תשובה.",
+      "7 תשובות נכונות ומעלה נחשבות הצלחה.",
+    ],
+  },
+  bigger: {
+    id: "bigger",
+    href: "/bigger",
+    title: "גדול או קטן",
+    tagline: "איזו מדינה גדולה יותר בשטח?",
+    emoji: "📏",
+    icon: ArrowUpDown,
+    color: "var(--hue-teal)",
+    tint: "var(--hue-teal-soft)",
+    group: "knowledge",
+    continentFilter: true,
+    rules: [
+      "שתי מדינות על הגלובוס. בחרו את זו שהשטח שלה גדול יותר.",
+      "ממשיכים ברצף עד הטעות הראשונה. 10 נקודות לכל תשובה נכונה.",
+    ],
+  },
+  population: {
+    id: "population",
+    href: "/population",
+    title: "מי יותר מאוכלסת",
+    tagline: "באיזו מדינה גרים יותר אנשים?",
+    emoji: "👥",
+    icon: Waypoints,
+    color: "var(--hue-pink)",
+    tint: "var(--hue-pink-soft)",
+    group: "knowledge",
+    continentFilter: true,
+    rules: [
+      "שתי מדינות על הגלובוס. בחרו את זו שגרים בה יותר אנשים (הערכת 2019).",
+      "ממשיכים ברצף עד הטעות הראשונה. 10 נקודות לכל תשובה נכונה.",
+    ],
+  },
+  continent: {
+    id: "continent",
+    href: "/continent",
+    title: "יבשת בדקה",
+    tagline: "באיזו יבשת? כמה שיותר ב־60 שניות",
+    emoji: "🗺️",
+    icon: Clock,
+    color: "var(--hue-violet)",
+    tint: "var(--hue-violet-soft)",
+    group: "knowledge",
+    continentFilter: false,
+    rules: [
+      "60 שניות. מופיעה מדינה — בחרו באיזו יבשת היא נמצאת.",
+      "כל תשובה נכונה היא נקודה, טעות מורידה 3 שניות.",
+      "הגלובוס מראה איפה הייתה המדינה הקודמת. 25 ומעלה — הצלחה.",
     ],
   },
 };
 
-export const GAME_LIST = [GAMES.hotcold, GAMES.route, GAMES.flags, GAMES.shape];
+export const GAME_LIST: GameMeta[] = [
+  GAMES.hotcold,
+  GAMES.route,
+  GAMES.pin,
+  GAMES.neighbors,
+  GAMES.chain,
+  GAMES.shape,
+  GAMES.flags,
+  GAMES.flagrush,
+  GAMES.capitals,
+  GAMES.bigger,
+  GAMES.population,
+  GAMES.continent,
+];
