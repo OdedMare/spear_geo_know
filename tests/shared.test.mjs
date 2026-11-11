@@ -40,3 +40,25 @@ test("an item carries its country and is a real prize when legendary", () => {
   assert.equal(pin.physical, false);
   assert.deepEqual(sanitizeEquipped({ badge: "2", head: "2", hand: "9" }, [crown, pin]), { badge: "2" });
 });
+
+test("avatars v2: every part in range, and v1 avatars are migrated", async () => {
+  const { RANGES, AVATAR_VERSION, clampFrame, HAIR_STYLES, FACIAL_HAIR, GLASSES, HEADWEAR, TOPS } = await import("../shared/avatar.mjs");
+  for (let i = 0; i < 200; i++) {
+    const a = randomAvatar(Math.random);
+    for (const [k, n] of Object.entries(RANGES)) assert.ok(a[k] >= 0 && a[k] < n, `${k}=${a[k]}`);
+    if (a.body === 1) assert.equal(a.facial, 0, "a random woman has no beard");
+    if (a.body === 0) assert.notEqual(TOPS[a.top].id, "dress");
+  }
+  // v1: { skin, hair, hairColor, eyes, mouth, accessory, bg, shirt, country }
+  const old = sanitizeAvatar({ skin: 3, hair: 2, hairColor: 4, eyes: 1, mouth: 1, accessory: 4, bg: 5, shirt: 5, country: "IL" });
+  assert.equal(old.v, AVATAR_VERSION);
+  assert.equal(HAIR_STYLES[old.hair].id, "long");
+  assert.equal(FACIAL_HAIR[old.facial].id, "full", "the v1 beard accessory becomes a beard");
+  assert.equal(old.country, "IL");
+  assert.equal(GLASSES[sanitizeAvatar({ accessory: 2 }).glasses].id, "sun");
+  assert.equal(HEADWEAR[sanitizeAvatar({ accessory: 3 }).headwear].id, "headphones");
+  // A frame is earned.
+  assert.equal(clampFrame({ ...old, frame: 3 }, -1).frame, 0);
+  assert.equal(clampFrame({ ...old, frame: 3 }, 2).frame, 2);
+  assert.equal(clampFrame({ ...old, frame: 1 }, 3).frame, 1);
+});

@@ -49,7 +49,7 @@ export default function Profile() {
   return (
     <main id="main-content" className="game-page profile">
       <section className="profile-head">
-        <Avatar avatar={avatar} equipped={worn} size={140} title={`האווטאר של ${player.nickname}`} />
+        <Avatar avatar={avatar} equipped={worn} size={140} animate title={`האווטאר של ${player.nickname}`} />
         <div className="profile-name">
           <label>
             <span className="field-label">הכינוי שלי</span>
@@ -72,7 +72,12 @@ export default function Profile() {
         <summary>
           <Palette size={16} aria-hidden /> עיצוב האווטאר
         </summary>
-        <AvatarEditor value={avatar} onChange={(a) => (setDraftAvatar(a), setMessage(null))} equipped={worn} />
+        <AvatarEditor
+          value={avatar}
+          onChange={(a) => (setDraftAvatar(a), setMessage(null))}
+          equipped={worn}
+          bestRarity={Math.max(-1, ...player.items.map((i) => RARITIES[i.rarity].order))}
+        />
       </details>
 
       <section className="game-group" aria-labelledby="closet-title">

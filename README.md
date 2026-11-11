@@ -30,11 +30,18 @@ who is champion of the week.
 | **יבשת בדקה** | `/continent` | A country → its continent, as many as you can in 60 seconds. |
 
 ### For the team
-- **Players and avatars.** The first visit asks for a nickname and an avatar
-  (skin, hair style and colour, eyes, mouth, accessory, shirt, background,
-  favourite country's flag). Every result is sent under the player, with a
-  personal token, so nobody can post as someone else. A **login code** in the
-  profile continues the same player on another device.
+- **Players and avatars.** The first visit asks for a nickname and an avatar:
+  a man's or a woman's build, skin tone, face shape, nose, freckles; eyes with
+  an iris colour, brows, mouth, lip colour; 17 hair styles in 10 colours and
+  facial hair; 12 tops (T-shirt, V-neck, polo, button shirt, shirt and tie,
+  blazer, sweater, hoodie, tank top, dress, turtleneck, uniform) in 10
+  colours and 3 patterns; glasses, earrings, headwear (headband, headphones,
+  kippa, headscarf); a solid, gradient or flag background; and a frame that
+  unlocks with merch of that rarity (checked on the server). The editor works
+  a tab at a time, shows every option on the player's own avatar, and has
+  undo and a per-tab shuffle. Avatars made before this are migrated. Every
+  result is sent under the player, with a personal token; a **login code** in
+  the profile continues the same player on another device.
 - **Country merch.** Items drawn in a country's flag colours, worn by the
   avatar: pin, supporters' shirt, mug (common) · cap, scarf, waving flag,
   beanie (rare) · hoodie, desk globe (epic) · crown, trophy (legendary).

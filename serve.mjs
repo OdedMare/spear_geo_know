@@ -14,8 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { sanitizeAvatar, sanitizeNickname } from "./shared/avatar.mjs";
-import { dropChance, KINDS, makeItem, pickKind, rollRarity, sanitizeEquipped } from "./shared/merch.mjs";
+import { clampFrame, sanitizeAvatar, sanitizeNickname } from "./shared/avatar.mjs";
+import { dropChance, KINDS, makeItem, pickKind, RARITIES, rollRarity, sanitizeEquipped } from "./shared/merch.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, process.argv[2] ?? "out");
@@ -120,6 +120,8 @@ function award(owner, reason, { game = null, day = today(), country = null, kind
 const hash = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const byNickname = (nick) => db.players.find((p) => p.nickname.toLocaleLowerCase("he") === nick.toLocaleLowerCase("he"));
 const itemsOf = (id) => db.items.filter((i) => i.owner === id);
+/** -1 with no merch, else the order of the rarest item owned (0 common … 3 legendary). */
+const bestRarity = (id) => Math.max(-1, ...itemsOf(id).map((i) => RARITIES[i.rarity].order));
 
 /** What everyone may see of a player: never the token. */
 function publicPlayer(p) {
@@ -129,7 +131,7 @@ function publicPlayer(p) {
     const item = owned.find((i) => i.id === id);
     if (item) equipped[slot] = item;
   }
-  return { id: p.id, nickname: p.nickname, avatar: p.avatar, equipped, items: owned.length, since: p.createdAt };
+  return { id: p.id, nickname: p.nickname, avatar: sanitizeAvatar(p.avatar), equipped, items: owned.length, since: p.createdAt };
 }
 
 function authed(req) {
@@ -231,7 +233,7 @@ async function api(req, res, url) {
       id: crypto.randomUUID(),
       tokenHash: hash(token),
       nickname,
-      avatar: sanitizeAvatar(body.avatar),
+      avatar: clampFrame(sanitizeAvatar(body.avatar), -1),
       equipped: {},
       createdAt: new Date().toISOString(),
     };
@@ -255,7 +257,8 @@ async function api(req, res, url) {
         if (other && other.id !== me.id) return json(res, 409, { error: "nickname taken" });
         me.nickname = nickname;
       }
-      if ("avatar" in body) me.avatar = sanitizeAvatar(body.avatar);
+      // A frame is earned: never better than the rarest merch owned.
+      if ("avatar" in body) me.avatar = clampFrame(sanitizeAvatar(body.avatar), bestRarity(me.id));
       if ("equipped" in body) me.equipped = sanitizeEquipped(body.equipped, itemsOf(me.id));
       save("players.json", db.players);
       return json(res, 200, { player: publicPlayer(me), items: itemsOf(me.id) });

@@ -55,6 +55,7 @@ test("players sign up with a unique nickname and get a token", async () => {
   assert.equal(a.body.player.nickname, "דנה");
   assert.equal(a.body.player.avatar.skin, 3);
   assert.equal(a.body.player.avatar.hair, 0, "an out-of-range part falls back");
+  assert.equal(a.body.player.avatar.v, 2);
   assert.equal(a.body.player.avatar.country, "IL");
   assert.ok(a.body.token.length > 20);
   dana = a.body;
@@ -141,6 +142,16 @@ test("a player wears only their own items, each in its slot", async () => {
   // Seeing the reveal marks items seen.
   await s.call("POST", "/api/me/seen", {}, dana.token);
   assert.ok((await s.call("GET", "/api/me", undefined, dana.token)).body.items.every((i) => i.seen));
+});
+
+test("a frame needs merch of that rarity", async () => {
+  // יואב has no items yet: a legendary frame is refused.
+  const r = await s.call("PUT", "/api/me", { avatar: { v: 2, frame: 3, body: 1 } }, yoav.token);
+  assert.equal(r.body.player.avatar.frame, 0);
+  assert.equal(r.body.player.avatar.body, 1);
+  // דנה holds a legendary item from the week: any frame.
+  const d = await s.call("PUT", "/api/me", { avatar: { v: 2, frame: 3 } }, dana.token);
+  assert.equal(d.body.player.avatar.frame, 3);
 });
 
 test("recent drops are public, with the winner's name", async () => {
