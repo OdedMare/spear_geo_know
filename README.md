@@ -35,10 +35,28 @@ npm install
 npm run dev        # http://localhost:3000
 npm test           # geometry, projection, daily seeding, name search
 npm run lint
-npm run build && npm start
+npm run build      # static site in out/
+npm start          # serves out/ on http://localhost:3000 (node serve.mjs, no dependencies)
 ```
 
 Docker: `docker build -t geo-games . && docker run -p 3000:3000 geo-games`.
+
+## Closed networks (no internet)
+
+The app makes no request outside its own site. Everything it shows is in the
+repository and served by the app itself:
+
+- `public/data/world.json` — every country: Hebrew and English names, outline, land borders, continent
+- `public/flags/*.svg` — 249 flags
+- `public/fonts/*.woff2` — Inter and Noto Sans Hebrew (OFL-1.1)
+
+On a closed network you only need npm (an internal registry mirror is enough)
+to install and build. After `npm run build`, `out/` is a plain static site:
+serve it with `npm start`, or point nginx / IIS / `python3 -m http.server
+--directory out` at it. It cannot be opened from `file://` by double-clicking
+`index.html`, because browsers block loading the country data that way.
+
+Only `npm run data` (rebuilding the data) needs the upstream sources below.
 
 ## Data
 

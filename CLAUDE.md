@@ -15,3 +15,7 @@ Daily geography games for a team, in Hebrew, right-to-left. See README.md.
   (winding, point-in-polygon, area) must unwrap longitudes along the ring.
 - No setState inside effects (the lint rule is on); read browser-only values
   through `useHydrated` / `useSyncExternalStore`, as PakashAgent does.
+- The app must run on a network with no internet: never load anything from
+  outside the site at runtime (no CDN, no Google Fonts, no remote flags or
+  map tiles). Data, flags and fonts live in `public/`. `next.config.ts` is a
+  static export (`out/`), served by `serve.mjs` or any static server.

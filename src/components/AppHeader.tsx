@@ -22,7 +22,7 @@ export default function AppHeader() {
       </Link>
       <nav aria-label="משחקים">
         {GAME_LIST.map((g) => (
-          <Link key={g.id} href={g.href} aria-current={path === g.href ? "page" : undefined}>
+          <Link key={g.id} href={g.href} aria-current={path.replace(/\/$/, "") === g.href ? "page" : undefined}>
             {g.title}
           </Link>
         ))}

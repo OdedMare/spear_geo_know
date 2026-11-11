@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node serve.mjs out",
     "lint": "eslint",
     "test": "node --test tests/*.test.mjs",
     "data": "node scripts/build-data.mjs"
