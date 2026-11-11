@@ -1,5 +1,6 @@
 // Builds public/data/world.json and public/flags/ from three upstream sources:
 //   world-atlas (countries-50m.json, ISC)     — country shapes, Natural Earth 1:50m
+//                (countries-10m.json)          — outlines for countries too small for 1:50m
 //   mledoze/countries (countries.json, ODbL)  — ISO codes, land borders, region, area
 //   flag-icons (flags/4x3/*.svg, MIT)         — flags
 //   Natural Earth admin-0 (ne_50m_admin_0_countries.geojson, public domain) — population
@@ -32,30 +33,33 @@ for (const { properties: p } of ne.features) {
 }
 
 // ---- TopoJSON decoding (quantized, delta-encoded arcs) ----
-const { scale, translate } = topo.transform;
-const arcs = topo.arcs.map((arc) => {
-  let x = 0;
-  let y = 0;
-  return arc.map(([dx, dy]) => {
-    x += dx;
-    y += dy;
-    return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
+function decoder(t) {
+  const { scale, translate } = t.transform;
+  const arcs = t.arcs.map((arc) => {
+    let x = 0;
+    let y = 0;
+    return arc.map(([dx, dy]) => {
+      x += dx;
+      y += dy;
+      return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
+    });
   });
-});
-const arcPoints = (i) => (i >= 0 ? arcs[i] : arcs[~i].slice().reverse());
-const ring = (indices) => {
-  const out = [];
-  for (const i of indices) {
-    const pts = arcPoints(i);
-    out.push(...(out.length ? pts.slice(1) : pts));
-  }
-  return out;
-};
-const polygonsOf = (g) => {
-  if (g.type === "Polygon") return [g.arcs.map(ring)];
-  if (g.type === "MultiPolygon") return g.arcs.map((p) => p.map(ring));
-  return [];
-};
+  const arcPoints = (i) => (i >= 0 ? arcs[i] : arcs[~i].slice().reverse());
+  const ring = (indices) => {
+    const out = [];
+    for (const i of indices) {
+      const pts = arcPoints(i);
+      out.push(...(out.length ? pts.slice(1) : pts));
+    }
+    return out;
+  };
+  return (g) => {
+    if (g.type === "Polygon") return [g.arcs.map(ring)];
+    if (g.type === "MultiPolygon") return g.arcs.map((p) => p.map(ring));
+    return [];
+  };
+}
+const polygonsOf = decoder(topo);
 
 // ---- Simplification (Douglas–Peucker in degrees) ----
 const TOLERANCE = 0.03;
@@ -108,29 +112,51 @@ function encodeRing(pts) {
 // ---- Join shapes to country metadata ----
 const byNumeric = new Map(meta.filter((c) => c.ccn3).map((c) => [c.ccn3, c]));
 const byCca3 = new Map(meta.map((c) => [c.cca3, c]));
-// Features without an ISO numeric code: folded into the country they belong to, or dropped.
+// Features without an ISO numeric code: folded into the country they belong to.
 const NAME_TO_CCA3 = { Kosovo: "UNK", Somaliland: "SOM", "N. Cyprus": "CYP" };
+// Not a country in this app: its land is still drawn, as plain unnamed land,
+// and it is never an answer, a guess, a flag or a border.
+const EXCLUDED = new Set(["PSE"]);
 
-const shapes = new Map(); // cca3 -> polygons
-for (const g of topo.objects.countries.geometries) {
-  const c = g.id ? byNumeric.get(g.id) : byCca3.get(NAME_TO_CCA3[g.properties.name]);
-  if (!c) {
-    console.warn("skipping shape:", g.properties.name);
-    continue;
-  }
-  const list = shapes.get(c.cca3) ?? [];
-  for (const poly of polygonsOf(g)) {
+function encodePolygons(polys) {
+  const list = [];
+  for (const poly of polys) {
     const rings = poly.map(encodeRing).filter(Boolean);
     if (rings.length) list.push(rings);
   }
   if (!list.length) {
     // Very small islands vanish under simplification; keep them unsimplified.
-    for (const poly of polygonsOf(g)) {
+    for (const poly of polys) {
       const outer = poly[0].flatMap(([x, y]) => [Math.round(x * 100), Math.round(y * 100)]);
       if (outer.length >= 6) list.push([outer]);
     }
   }
-  shapes.set(c.cca3, list);
+  return list;
+}
+
+const shapes = new Map(); // cca3 -> polygons
+const land = []; // polygons drawn as land that belong to no country here
+const countryOf = (g) => (g.id ? byNumeric.get(g.id) : byCca3.get(NAME_TO_CCA3[g.properties.name]));
+for (const g of topo.objects.countries.geometries) {
+  const c = countryOf(g);
+  const polys = encodePolygons(polygonsOf(g));
+  if (!c || EXCLUDED.has(c.cca3)) {
+    console.log("plain land:", g.properties.name);
+    land.push(...polys);
+    continue;
+  }
+  shapes.set(c.cca3, [...(shapes.get(c.cca3) ?? []), ...polys]);
+}
+
+// A country too small for 1:50m (Tuvalu) takes its outline from 1:10m.
+const topo10 = JSON.parse(fs.readFileSync(path.join(src, "world-atlas/countries-10m.json"), "utf8"));
+const polygonsOf10 = decoder(topo10);
+for (const g of topo10.objects.countries.geometries) {
+  const c = countryOf(g);
+  if (!c || EXCLUDED.has(c.cca3) || shapes.has(c.cca3)) continue;
+  if (!(c.unMember || ["VAT", "UNK", "TWN"].includes(c.cca3))) continue;
+  console.log("1:10m outline:", c.name.common);
+  shapes.set(c.cca3, encodePolygons(polygonsOf10(g)));
 }
 
 const he = new Intl.DisplayNames(["he"], { type: "region" });
@@ -138,7 +164,6 @@ const HEBREW_OVERRIDES = {
   CD: "קונגו (קינשאסה)",
   CG: "קונגו (ברזוויל)",
   MM: "מיאנמר",
-  PS: "פלסטין",
   US: "ארצות הברית",
   GB: "בריטניה",
   VA: "הוותיקן",
@@ -178,7 +203,7 @@ const continentOf = (c) => {
 };
 
 // Countries that are "real" answers: UN members plus a few widely recognised others.
-const EXTRA_SOVEREIGN = new Set(["VAT", "PSE", "UNK", "TWN"]);
+const EXTRA_SOVEREIGN = new Set(["VAT", "UNK", "TWN"]);
 
 const countries = [];
 for (const c of meta) {
@@ -187,6 +212,7 @@ for (const c of meta) {
   const hasFlag = fs.existsSync(path.join(flagDir, `${iso2.toLowerCase()}.svg`));
   if (!poly && !hasFlag) continue;
   if (c.cca3 === "ATA") continue; // Antarctica
+  if (EXCLUDED.has(c.cca3)) continue;
   countries.push({
     id: c.cca3,
     iso2,
@@ -222,9 +248,10 @@ for (const c of countries) {
 countries.sort((a, b) => a.he.localeCompare(b.he, "he"));
 
 fs.mkdirSync(path.join(root, "public/data"), { recursive: true });
-fs.writeFileSync(path.join(root, "public/data/world.json"), JSON.stringify({ countries }));
+fs.writeFileSync(path.join(root, "public/data/world.json"), JSON.stringify({ countries, land }));
 
 const flagsOut = path.join(root, "public/flags");
+fs.rmSync(flagsOut, { recursive: true, force: true }); // no flag left behind for a country taken out
 fs.mkdirSync(flagsOut, { recursive: true });
 let flagCount = 0;
 for (const c of countries) {

@@ -1,3 +1,15 @@
+# Built inside the image, or not needed there.
 node_modules
 .next
+out
+*.tsbuildinfo
+# Local team results never go into an image; mount a volume instead.
+data
 .git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+.env*
+*.log
+.DS_Store

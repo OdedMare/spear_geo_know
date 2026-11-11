@@ -26,6 +26,8 @@ export interface World {
   /** Countries that can be drawn and measured: every guess in a map game. */
   mapped: Country[];
   neighbours: (id: string) => string[];
+  /** Land that belongs to no country in the app: drawn plain, never named. */
+  land: Shape;
 }
 
 let pending: Promise<World> | null = null;
@@ -34,15 +36,16 @@ export function loadWorld(): Promise<World> {
   pending ??= fetch("/data/world.json")
     .then((r) => {
       if (!r.ok) throw new Error(`world.json: ${r.status}`);
-      return r.json() as Promise<{ countries: Country[] }>;
+      return r.json() as Promise<{ countries: Country[]; land?: Shape }>;
     })
-    .then(({ countries }) => {
+    .then(({ countries, land = [] }) => {
       const byId = new Map(countries.map((c) => [c.id, c]));
       return {
         countries,
         byId,
         mapped: countries.filter((c) => c.shape),
         neighbours: (id: string) => byId.get(id)?.borders ?? [],
+        land,
       };
     })
     .catch((e) => {

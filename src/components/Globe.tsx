@@ -46,15 +46,17 @@ export interface GlobeMarker {
   label?: string;
 }
 
-type Prepared = { country: Country; polys: { v: Float64Array; ring: number[] }[][] }[];
+type Prepared = { country: Country | null; polys: { v: Float64Array; ring: number[] }[][] }[];
 const prepared = new WeakMap<World, Prepared>();
 function prepare(world: World): Prepared {
   let p = prepared.get(world);
   if (!p) {
-    p = world.mapped.map((country) => ({
-      country,
-      polys: country.shape!.map((poly) => poly.map((ring) => ({ v: ringToVectors(ring), ring }))),
-    }));
+    const toVectors = (shape: number[][][]) => shape.map((poly) => poly.map((ring) => ({ v: ringToVectors(ring), ring })));
+    p = [
+      // Plain land first, so no country is ever drawn under it.
+      ...(world.land.length ? [{ country: null, polys: toVectors(world.land) }] : []),
+      ...world.mapped.map((country) => ({ country, polys: toVectors(country.shape!) })),
+    ];
     prepared.set(world, p);
   }
   return p;
@@ -230,12 +232,12 @@ export default function Globe({
         }
       }
       if (!any) continue;
-      ctx.fillStyle = country.id in colours ? pal.resolve(colours[country.id]) : pal.land;
+      ctx.fillStyle = country && country.id in colours ? pal.resolve(colours[country.id]) : pal.land;
       ctx.fill(path, "evenodd");
       ctx.strokeStyle = pal.border;
       ctx.lineWidth = 0.6;
       ctx.stroke(path);
-      if (heavy.includes(country.id)) heavyPaths.push(path);
+      if (country && heavy.includes(country.id)) heavyPaths.push(path);
     }
     ctx.strokeStyle = pal.outline;
     ctx.lineWidth = 2;

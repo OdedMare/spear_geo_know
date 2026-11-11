@@ -1,0 +1,19 @@
+# docker compose up -d --build   →   http://localhost:3000
+services:
+  geo-games:
+    build:
+      context: .
+      args:
+        # For a network with no internet: an internal base image and npm mirror.
+        NODE_IMAGE: ${NODE_IMAGE:-node:24.1.0-slim}
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
+    image: geo-games
+    restart: unless-stopped
+    ports:
+      - "${GEO_PORT:-3000}:3000"
+    volumes:
+      # Keeps the team table across restarts and upgrades.
+      - geo-scores:/app/data
+
+volumes:
+  geo-scores:

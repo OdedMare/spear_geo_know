@@ -90,13 +90,20 @@ rebuild them, put the three sources in one directory and run the script:
 
 ```
 <src>/countries.json      # github.com/mledoze/countries (ODbL)
-<src>/world-atlas/        # npm package world-atlas (Natural Earth 1:50m, ISC)
+<src>/world-atlas/        # npm package world-atlas (Natural Earth 1:50m and 1:10m, ISC)
 <src>/flag-icons/         # npm package flag-icons (MIT)
 <src>/ne50.geojson        # Natural Earth ne_50m_admin_0_countries (public domain), for population
 ```
 
-Hebrew capital names are in `scripts/capitals-he.json` (Palestine is left out
-of the capitals game on purpose: its capital is disputed).
+Hebrew capital names are in `scripts/capitals-he.json`.
+
+**Which countries.** Every UN member state, plus the Vatican, Kosovo and
+Taiwan — 196 countries, each with an outline, flag, Hebrew capital and
+population; territories (Greenland, Puerto Rico…) can be guessed but are never
+the answer. Palestine is not in the app (`EXCLUDED` in the build script): its
+land is drawn as plain, unnamed land, and it is never an answer, a guess, a
+flag or a border. Countries too small for the 1:50m map (Tuvalu) take their
+outline from 1:10m. `tests/world.test.mjs` checks all of this.
 
 ```bash
 npm run data -- <src>
