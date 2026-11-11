@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useTheme } from "@/hooks/useTheme";
+import { usePlayer, wornItems } from "@/lib/player";
+import Avatar from "./Avatar";
 import { GAME_LIST } from "@/lib/games";
 
 const NAV = [
@@ -16,6 +18,7 @@ export default function AppHeader() {
   const path = usePathname();
   const { theme, toggle } = useTheme();
   const hydrated = useHydrated();
+  const player = usePlayer();
   const current = GAME_LIST.find((g) => path.replace(/\/$/, "") === g.href);
 
   return (
@@ -34,6 +37,13 @@ export default function AppHeader() {
         ))}
         {current && <span className="nav-current">{current.title}</span>}
       </nav>
+      {player && (
+        <Link href="/profile" className="player-chip" aria-label={`הפרופיל של ${player.nickname}`}>
+          <Avatar avatar={player.avatar} equipped={wornItems(player)} size={34} />
+          <span className="player-chip-name">{player.nickname}</span>
+          {player.items.some((i) => !i.seen) && <span className="dot-new" aria-label="פריט חדש" />}
+        </Link>
+      )}
       <button type="button" className="icon-button" onClick={toggle} aria-label={theme === "dark" ? "מצב בהיר" : "מצב כהה"}
         suppressHydrationWarning>
         {hydrated && theme === "dark" ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}

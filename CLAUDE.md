@@ -24,5 +24,14 @@ Daily geography games for a team, in Hebrew, right-to-left. See README.md.
   them comparable across games; their formulas live in `lib/scoring.ts`.
 - Puzzles draw from `lib/pools.ts` (difficulty by population rank, optional
   continent). The daily always uses `DAILY_OPTIONS`.
-- The team table is `serve.mjs` (`/api/scores`, JSON file in `data/`). It is
-  optional: without it every game still works.
+- `serve.mjs` holds players, scores, merch and admin (JSON files in `data/`).
+  It is optional: without it every game and the avatar still work locally.
+- `shared/*.mjs` is plain JavaScript with no imports, loaded by both the
+  server and the app (`@shared/*`). Validation lives there, so the browser and
+  the server agree on what an avatar, nickname or equipped item may be.
+- The server decides every drop and every champion; never let the browser
+  claim an item. A player is a token: it is stored hashed and never returned
+  except once, at sign-up. Champions are settled lazily on the first API
+  call after a day or week ends.
+- A favourite country on an avatar is ISO alpha-2 (flags are named that way);
+  everywhere else a country is alpha-3.

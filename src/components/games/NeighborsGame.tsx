@@ -42,6 +42,7 @@ export default function NeighborsGame({ world, seed, daily, day, tag, options, o
       points,
       summary: `${found.length}/${neighbours.length} שכנות`,
       tags: all && wrong.length === 0 && !gaveUp ? ["all"] : [],
+      country: target.id,
     });
   };
 

@@ -69,6 +69,7 @@ export default function ShapeGame({ world, seed, daily, day, tag, options, onFin
         points: shapeScore(guesses.length, won),
         summary: won ? `${guesses.length}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`,
         tags: won && guesses.length === 1 ? ["first-try"] : [],
+        country: target.id,
       });
   };
 

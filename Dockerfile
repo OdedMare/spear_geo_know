@@ -2,6 +2,7 @@
 #
 #   docker build -t geo-games .
 #   docker run -d -p 3000:3000 -v geo-scores:/app/data --name geo-games geo-games
+# Add -e GEO_ADMIN_KEY=<a long secret> to open /admin (prizes to hand over).
 #
 # On a network with no internet, point the build at what is there:
 #   docker build -t geo-games \
@@ -34,7 +35,7 @@ RUN --mount=type=secret,id=npm_ca,required=false \
 COPY . .
 RUN npm test && npm run build
 
-# ---- Run: Node, the site and serve.mjs; no node_modules ----
+# ---- Run: Node, the site, serve.mjs and its shared modules; no node_modules ----
 FROM ${NODE_IMAGE}
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -43,6 +44,7 @@ ENV NODE_ENV=production \
 
 COPY --from=build --chown=node:node /app/out ./out
 COPY --from=build --chown=node:node /app/serve.mjs ./serve.mjs
+COPY --from=build --chown=node:node /app/shared ./shared
 # The team table's results (data/scores.json). Mount a volume here, or they
 # are lost when the container is replaced.
 RUN mkdir -p /app/data && chown node:node /app/data

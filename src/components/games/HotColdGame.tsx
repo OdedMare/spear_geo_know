@@ -56,7 +56,7 @@ export default function HotColdGame({ world, seed, daily, day, tag, options, onF
     setFocus(focusOn(c));
     if (won) {
       const n = state.guesses.length + 1;
-      onFinish({ won, points: hotColdScore(n, true), summary: `${n} ניחושים`, tags: n <= 5 ? ["quick"] : [] });
+      onFinish({ won, points: hotColdScore(n, true), summary: `${n} ניחושים`, tags: n <= 5 ? ["quick"] : [], country: target.id });
     }
   };
 

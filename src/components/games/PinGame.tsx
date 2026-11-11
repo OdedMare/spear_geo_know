@@ -75,6 +75,8 @@ export default function PinGame({ world, seed, daily, day, tag, options, onFinis
         points,
         summary: `${points} נק׳ ממוצע`,
         tags: shots.some((s) => s.km === 0) ? ["bullseye"] : [],
+        // The best-placed tap names the merch country.
+        country: targets[shots.reduce((b, s, i) => (s.km < shots[b].km ? i : b), 0)].id,
       });
   };
 

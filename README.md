@@ -30,11 +30,29 @@ who is champion of the week.
 | **יבשת בדקה** | `/continent` | A country → its continent, as many as you can in 60 seconds. |
 
 ### For the team
-- **Team table** (`/leaderboard`): each daily result is sent under the player's name. Today per game and in total, and the week (Sunday to Saturday) with its champion. One result per person, game and day; the first counts.
-- **Challenge a friend**: every result card copies a link to the exact same puzzle (also for practice rounds, with their settings).
-- **Practice mode** with difficulty (easy keeps the best-known countries, hard has them all) and a continent filter.
-- **Badges** (17), kept per browser and shown on the home page.
-- At the end of a game, a card about the country: continent, capital, area, population, land neighbours.
+- **Players and avatars.** The first visit asks for a nickname and an avatar
+  (skin, hair style and colour, eyes, mouth, accessory, shirt, background,
+  favourite country's flag). Every result is sent under the player, with a
+  personal token, so nobody can post as someone else. A **login code** in the
+  profile continues the same player on another device.
+- **Country merch.** Items drawn in a country's flag colours, worn by the
+  avatar: pin, supporters' shirt, mug (common) · cap, scarf, waving flag,
+  beanie (rare) · hoodie, desk globe (epic) · crown, trophy (legendary).
+  - A daily result of 75+ sometimes drops one (15–35%, more for a better
+    result), usually from that puzzle's country.
+  - The day's champion (most points that day) always gets a rare or epic item.
+  - The week's champion (Sunday–Saturday) gets a legendary item that is also
+    a **real prize**: the team hands it over and marks it delivered in `/admin`.
+  - The server decides every drop and champion; the browser cannot.
+  - New items open in a reveal with "wear it now"; the closet is at `/profile`.
+- **Team table** (`/leaderboard`): today per game and in total, the week, a
+  podium with avatars, and a feed of recent prizes. One result per player,
+  game and day.
+- **Admin** (`/admin`, needs `GEO_ADMIN_KEY`): real prizes waiting to be
+  handed over, mark them delivered, give any player an item as a gift.
+- **Challenge a friend**: every result card copies a link to the exact same puzzle.
+- **Practice mode** with difficulty and a continent filter; **17 badges**; a
+  country card at the end of every game.
 
 ## Stack
 
@@ -59,10 +77,23 @@ npm run build      # static site in out/
 npm start          # site + team table on http://localhost:3000 (node serve.mjs, no dependencies)
 ```
 
-The team table is the only part with a server: `serve.mjs` answers
-`/api/scores` and keeps results in `data/scores.json` (set `GEO_DATA_DIR` to
-put it elsewhere, e.g. a mounted volume). Served any other way (nginx, IIS,
-`npm run dev`), the games work and the table says it is not available.
+Players, the team table and merch need the server: `serve.mjs` (no
+dependencies) keeps them as JSON files in `data/` — `players.json` (tokens
+stored hashed), `scores.json`, `items.json`, `state.json` — or wherever
+`GEO_DATA_DIR` points, e.g. a mounted volume. Set `GEO_ADMIN_KEY` to a long
+secret to open `/admin`. Served any other way (nginx, IIS, `npm run dev`), the
+games and avatars work on each browser alone, and the table says it is not
+available.
+
+| API | |
+|---|---|
+| `POST /api/players` | sign up `{nickname, avatar}` → `{player, token}` (409 if the nickname is taken) |
+| `GET /api/players` | everyone's nickname, avatar and worn items |
+| `GET/PUT /api/me` | the player (Bearer token): profile, items; change nickname, avatar, what is worn |
+| `POST /api/scores` | a daily result (Bearer token) → `{entry, drops}` |
+| `GET /api/scores?from=&to=` | results in a date range |
+| `GET /api/drops` | recent merch, for the feed |
+| `/api/admin/*` | prizes, delivered, gifts (`x-admin-key` header) |
 
 Docker: `docker build -t geo-games . && docker run -p 3000:3000 -v geo-scores:/app/data geo-games` (the volume keeps the team table).
 
@@ -124,7 +155,9 @@ src/components/Globe.tsx  canvas globe: lighting, atmosphere, lines, markers, ta
 src/components/games/     the twelve games (FlagsGame also serves capitals, TimedQuiz the two timed games)
 src/components/GamePage   shared shell: daily/practice/challenge, options, rules, stats, badges
 src/components/Leaderboard, TeamPanel   the team table
+src/components/Avatar, AvatarEditor, PlayerGate, Profile, Admin   players and merch
+shared/                   avatar options and the merch catalog, used by the server and the browser
 src/lib/                  pure logic (geo, projection, daily, names, pools, scoring, badges, silhouette, heat)
-serve.mjs                 static server + /api/scores, no dependencies
+serve.mjs                 static server + players, scores, merch and admin API, no dependencies
 tests/                    node --test, loading src/lib/*.ts through the TS compiler
 ```

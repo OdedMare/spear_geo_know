@@ -11,6 +11,9 @@ services:
     restart: unless-stopped
     ports:
       - "${GEO_PORT:-3000}:3000"
+    environment:
+      # Opens /admin, where real prizes are marked as handed over. Leave empty to keep it off.
+      GEO_ADMIN_KEY: ${GEO_ADMIN_KEY:-}
     volumes:
       # Keeps the team table across restarts and upgrades.
       - geo-scores:/app/data

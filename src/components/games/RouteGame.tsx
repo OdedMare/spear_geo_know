@@ -89,6 +89,7 @@ export default function RouteGame({ world, seed, daily, day, tag, options, onFin
         points: score.points,
         summary: won ? `${starsText(score.stars)} ${guesses.length} מדינות (מינימום ${minimum})` : "לא הגיע/ה",
         tags: score.perfect ? ["perfect"] : [],
+        country: end.id,
       });
     }
   };

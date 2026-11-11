@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import AppHeader from "@/components/AppHeader";
+import PlayerGate from "@/components/PlayerGate";
 import "@/styles/globals.css";
 
 const themeScript = `
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           דלגו לתוכן הראשי
         </a>
         <AppHeader />
-        {children}
+        <PlayerGate>{children}</PlayerGate>
         <footer className="app-footer">
           מפות: Natural Earth · נתוני מדינות: mledoze/countries · דגלים: flag-icons
         </footer>

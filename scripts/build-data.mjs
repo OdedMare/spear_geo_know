@@ -202,6 +202,28 @@ const continentOf = (c) => {
   return c.subregion === "South America" ? "דרום אמריקה" : "צפון אמריקה";
 };
 
+// A flag's main colours, in the order the SVG paints them (the field first):
+// enough to dress merch in a country's colours. Near-duplicates are merged.
+const NAMED = { red: "#ff0000", white: "#ffffff", blue: "#0000ff", green: "#008000", yellow: "#ffff00", black: "#000000", orange: "#ffa500" };
+function flagColours(file) {
+  const svg = fs.readFileSync(file, "utf8");
+  const found = [];
+  for (const m of svg.matchAll(/fill(?:="|:)\s*(#[0-9a-fA-F]{3,6}\b|red|white|blue|green|yellow|black|orange)/g)) {
+    let c = m[1].toLowerCase();
+    c = NAMED[c] ?? c;
+    if (c.length === 4) c = "#" + [...c.slice(1)].map((x) => x + x).join("");
+    if (c.length !== 7) continue;
+    const rgb = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    const near = found.some((f) => {
+      const o = [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16));
+      return Math.hypot(rgb[0] - o[0], rgb[1] - o[1], rgb[2] - o[2]) < 40;
+    });
+    if (!near) found.push(c);
+    if (found.length === 3) break;
+  }
+  return found.length ? found : ["#888888", "#dddddd"];
+}
+
 // Countries that are "real" answers: UN members plus a few widely recognised others.
 const EXTRA_SOVEREIGN = new Set(["VAT", "UNK", "TWN"]);
 
@@ -228,6 +250,7 @@ for (const c of meta) {
     borders: [],
     _borders: c.borders ?? [],
     flag: hasFlag,
+    colors: hasFlag ? flagColours(path.join(flagDir, `${iso2.toLowerCase()}.svg`)) : ["#888888", "#dddddd"],
     shape: poly ?? null,
   });
 }

@@ -26,6 +26,8 @@ export interface GameResult {
   summary: string;
   /** Achievements this game unlocked, read by lib/badges.ts. */
   tags?: string[];
+  /** The puzzle's country (ISO alpha-3), when it has one: merch it drops comes from there. */
+  country?: string;
 }
 
 export interface Stats {
