@@ -148,7 +148,7 @@ export default function GamePage({ game }: { game: GameId }) {
   );
 
   return (
-    <main id="main-content" className="game-page">
+    <main id="main-content" className="game-page" style={{ ["--accent" as string]: meta.color, ["--tint" as string]: meta.tint }}>
       <header className="game-head">
         <div className="game-title">
           <span className="game-icon" style={{ background: meta.tint, color: meta.color }}>

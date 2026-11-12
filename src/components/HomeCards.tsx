@@ -52,7 +52,7 @@ export default function HomeCards() {
               const Icon = g.icon;
               return (
                 <li key={g.id}>
-                  <Link href={g.href} className="game-card">
+                  <Link href={g.href} className={done ? "game-card is-done" : "game-card"} style={{ ["--accent" as string]: g.color, ["--tint" as string]: g.tint }}>
                     <span className="game-icon" style={{ background: g.tint, color: g.color }}>
                       <Icon size={26} aria-hidden />
                     </span>

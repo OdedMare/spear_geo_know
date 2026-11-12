@@ -5,7 +5,7 @@ import HomeGreeting from "@/components/HomeGreeting";
 export default function Home() {
   return (
     <main id="main-content" className="home">
-      <section className="home-hero">
+      <section className="home-hero space-band">
         <div className="home-hero-text">
           <HomeGreeting />
           <h1>משחקי גיאוגרפיה לצוות</h1>
